@@ -1,3 +1,9 @@
+# Binaries
+*
+!*/
+!*.*
+
+
 # Prerequisites
 *.d
 
@@ -53,3 +59,4 @@ dkms.conf
 
 # debug information files
 *.dwo
+
