@@ -15,12 +15,12 @@ static int is_int(const char *str)
   return 1;
 }
 
-static int is_alpha(const char *str)
+static int is_name(const char *str)
 {
   if (!str)
     return 0;
   while (str)
-    if (isalpha(*str))
+    if (isalpha(*str) || isdigit(*str))
       ++str;
     else
       return 0;
@@ -93,7 +93,7 @@ static Token next_token(FILE *fp)
   STR_DEFAULT
   if (is_int(tok.value))
     tok.type = _INT;
-  else if (is_alpha(tok.value))
+  else if (is_name(tok.value))
     tok.type = _NAME;
   else
     tok.type = _INVALID;
