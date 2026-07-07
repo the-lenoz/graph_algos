@@ -1,4 +1,5 @@
 #include "algo.h"
+#include "../dijkstra_heap/heap.h"
 #include "../htable/htable.h"
 #include "../vector/vector.h"
 #include <ctype.h>
@@ -198,7 +199,7 @@ int Graph_add_node(Graph *g, const char *node_name)
     return 0; // Node already exists
 
   id = NodeVector_size(g->nodes);
-  struct _node node = (Node){
+  Node node = (Node){
       1,
       (char *)node_name,
       NULL,
@@ -218,7 +219,7 @@ int Graph_remove_node(Graph *g, const char *node_name)
   if (!ht_get(g->node_names_map, node_name, (int64_t *)&id))
     return printf("Unknown node %s\n", node_name), 0;
 
-  struct _node *node = NodeVector_get(g->nodes, id);
+  Node *node = NodeVector_get(g->nodes, id);
   if (!node->alive)
     return 0;
 
@@ -317,7 +318,7 @@ static int postorder_rec(Graph *g, uint64_t node_id, IdList **postorder, int *vi
     return 0;
 
   visited[node_id] = 1;
-  
+
   for (IdList *edge_l = node->exiting_edges; edge_l; edge_l = edge_l->next)
   {
     Edge *edge = EdgeVector_get(g->edges, edge_l->val);
@@ -342,7 +343,7 @@ int Graph_run_RPO(Graph *g, const char *start_node_name)
     return 0;
 
   free(visited);
-  
+
   int *RPO_index = calloc(size, sizeof(int));
   for (int i = 0; i < size; ++i)
     RPO_index[i] = INT_MAX;
@@ -385,5 +386,49 @@ int Graph_run_RPO(Graph *g, const char *start_node_name)
 
 int Graph_run_Dijkstra(Graph *g, const char *node_name)
 {
-  return 0;
-}    
+  uint64_t id;
+  if (!g || !is_valid_node_name(node_name))
+    return 0;
+  if (!ht_get(g->node_names_map, node_name, (int64_t *)&id))
+    return printf("Unknown node %s\n", node_name), 0;
+
+  Node *node = NodeVector_get(g->nodes, id);
+
+  int nodes_count = NodeVector_size(g->nodes);
+  int *distances = malloc(sizeof(int) * nodes_count);
+  if (!distances)
+    return 0;
+
+  for (int i = 0; i < nodes_count; ++i)
+    distances[i] = INT_MAX;
+  distances[id] = 0;
+
+  Heap *pq = Heap_init();
+  Heap_add(pq, (HeapItem){0, id});
+  HeapItem item;  
+  while (!Heap_is_empty(pq))
+  {
+    item = Heap_pop(pq);
+    if (item.val > distances[item.node_id])
+      continue;
+
+    Node *current_node = NodeVector_get(g->nodes, item.node_id);
+
+    for (IdList *edge_l = current_node->exiting_edges; edge_l; edge_l = edge_l->next)
+    {
+      Edge *edge = EdgeVector_get(g->edges, edge_l->val);
+      if (!edge->alive) continue;
+      int distance = item.val + edge->weight;
+      if (distance < distances[edge->dst_id])
+	Heap_add(pq, (HeapItem){distances[edge->dst_id] = distance, edge->dst_id});
+    }
+  }
+  for (int i = 0; i < nodes_count; ++i)
+  {
+    Node *current_node = NodeVector_get(g->nodes, i);
+    if (!current_node->alive || i == id)
+      continue;
+    printf("%s %d\n", current_node->name, distances[i]);
+  }
+  return 1;
+}

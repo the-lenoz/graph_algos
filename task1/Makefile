@@ -6,7 +6,7 @@ DEPFLAGS ?= -MMD -MP
 MAIN_SRC := main.c
 TEST_SRCS := $(wildcard test_*.c)
 
-LIB_SRCS := $(filter-out %main.c %test_%, $(wildcard *.c ../htable/*.c ../vector/*.c)) 
+LIB_SRCS := $(filter-out %main.c %test_%, $(wildcard *.c ../htable/*.c ../vector/*.c ../dijkstra_heap/*.c)) 
 
 MAIN_OBJ := $(MAIN_SRC:.c=.o)
 TEST_OBJS := $(TEST_SRCS:.c=.o)

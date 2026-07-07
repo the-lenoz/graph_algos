@@ -34,6 +34,7 @@ int exec_instr(Instr instr)
     break;
   case DIJKSTRA:
     fprintf(stderr, "Run Dijkstra from '%s'.\n", instr.name_arg_0.value);
+    Graph_run_Dijkstra(g, instr.name_arg_0.value);
     break;
   case MAXFLOW:
     fprintf(stderr, "Find max flow %s->%s.\n", instr.name_arg_0.value, instr.name_arg_1.value);
