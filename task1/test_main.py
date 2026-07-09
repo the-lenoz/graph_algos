@@ -116,6 +116,71 @@ class MainIntegrationTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertEqual(proc.stdout, "B 10\nC 20\nD 30\n")
 
+    def test_main_dijkstra_complex_weighted_graph(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE A",
+                    "NODE B",
+                    "NODE C",
+                    "NODE D",
+                    "NODE E",
+                    "NODE F",
+                    "NODE G",
+                    "NODE H",
+                    "EDGE A B 4",
+                    "EDGE A C 2",
+                    "EDGE B C 5",
+                    "EDGE B D 10",
+                    "EDGE C E 3",
+                    "EDGE E D 4",
+                    "EDGE D F 11",
+                    "EDGE E F 2",
+                    "EDGE C G 20",
+                    "EDGE G H 1",
+                    "DIJKSTRA A",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(
+            proc.stdout,
+            "".join(
+                [
+                    "B 4\n",
+                    "C 2\n",
+                    "D 9\n",
+                    "E 5\n",
+                    "F 7\n",
+                    "G 22\n",
+                    "H 23\n",
+                ]
+            ),
+        )
+
+    def test_main_dijkstra_skips_unreachable_nodes(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE A",
+                    "NODE B",
+                    "NODE C",
+                    "NODE D",
+                    "NODE E",
+                    "EDGE A B 1",
+                    "EDGE B C 2",
+                    "EDGE D E 3",
+                    "DIJKSTRA A",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, "B 1\nC 3\n")
+
     def test_remove_edge_then_dijkstra_rpo_and_repeat_remove(self):
         proc = self.run_main(
             "\n".join(
@@ -227,6 +292,56 @@ class MainIntegrationTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertEqual(proc.stdout, "5\n")
 
+    def test_main_maxflow_complex_residual_network(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE S",
+                    "NODE A",
+                    "NODE B",
+                    "NODE C",
+                    "NODE D",
+                    "NODE T",
+                    "EDGE S A 16",
+                    "EDGE S C 13",
+                    "EDGE A B 12",
+                    "EDGE B C 9",
+                    "EDGE C A 4",
+                    "EDGE C D 14",
+                    "EDGE D B 7",
+                    "EDGE B T 20",
+                    "EDGE D T 4",
+                    "MAXFLOW S T",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, "23\n")
+
+    def test_main_maxflow_sums_parallel_edges(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE S",
+                    "NODE A",
+                    "NODE B",
+                    "NODE T",
+                    "EDGE S A 5",
+                    "EDGE S A 7",
+                    "EDGE A T 10",
+                    "EDGE S B 4",
+                    "EDGE B T 4",
+                    "MAXFLOW S T",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, "14\n")
+
     def test_main_tarjan_sample(self):
         proc = self.run_main(
             "\n".join(
@@ -244,7 +359,78 @@ class MainIntegrationTest(unittest.TestCase):
         )
 
         self.assertEqual(proc.returncode, 0)
-        self.assertEqual(proc.stdout, "A B C\n")
+        self.assertEqual(proc.stdout, "A B C \n")
+
+    def test_main_tarjan_multiple_components_from_start(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE A",
+                    "NODE B",
+                    "NODE C",
+                    "NODE D",
+                    "NODE E",
+                    "NODE F",
+                    "NODE G",
+                    "NODE H",
+                    "NODE I",
+                    "NODE J",
+                    "NODE K",
+                    "EDGE A B 1",
+                    "EDGE B C 1",
+                    "EDGE C A 1",
+                    "EDGE C D 1",
+                    "EDGE D E 1",
+                    "EDGE E D 1",
+                    "EDGE E F 1",
+                    "EDGE F G 1",
+                    "EDGE G H 1",
+                    "EDGE H F 1",
+                    "EDGE H I 1",
+                    "EDGE I J 1",
+                    "EDGE J K 1",
+                    "EDGE K I 1",
+                    "TARJAN A",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(
+            proc.stdout,
+            "".join(
+                [
+                    "I J K \n",
+                    "F G H \n",
+                    "D E \n",
+                    "A B C \n",
+                ]
+            ),
+        )
+
+    def test_main_tarjan_ignores_singleton_components(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE A",
+                    "NODE B",
+                    "NODE C",
+                    "NODE D",
+                    "NODE E",
+                    "EDGE A B 1",
+                    "EDGE B C 1",
+                    "EDGE C B 1",
+                    "EDGE C D 1",
+                    "EDGE D E 1",
+                    "TARJAN A",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(proc.stdout, "B C \n")
 
 
 if __name__ == "__main__":

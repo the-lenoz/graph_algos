@@ -604,11 +604,103 @@ int Graph_run_max_flow(Graph *g, const char *src_name, const char *dst_name)
   free(graph_matrix);
 
   printf("%d\n", flow);
-  
+
+  return 1;
+}
+
+static int Tarjan_dfs(Graph *g, uint64_t node_id,
+                      int *timer, int *tin, int *low,
+                      IdList **SCC_stack, int *on_stack, int *visited)
+{
+  if (!g || !timer || !tin || !low || !SCC_stack || !on_stack || !visited)
+    return 0;
+
+  size_t nodes_count = NodeVector_size(g->nodes);
+  if (node_id >= nodes_count)
+    return 0;
+
+  tin[node_id] = low[node_id] = *timer;
+  visited[node_id] = 1;
+  ++*timer;
+
+  IdList_append(SCC_stack, node_id);
+  on_stack[node_id] = 1;
+
+  Node *node = NodeVector_get(g->nodes, node_id);
+  if (!node->alive)
+    return 0;
+  for (IdList *e = node->exiting_edges; e; e = e->next)
+  {
+    Edge *edge = EdgeVector_get(g->edges, e->val);
+    if (!edge->alive)
+      continue;
+
+    if (!visited[edge->dst_id])
+    {
+      Tarjan_dfs(g, edge->dst_id, timer, tin, low, SCC_stack, on_stack, visited);
+      if (low[node_id] > low[edge->dst_id])
+        low[node_id] = low[edge->dst_id];
+    }
+    else if (on_stack[edge->dst_id])
+      if (low[node_id] > tin[edge->dst_id])
+        low[node_id] = tin[edge->dst_id];
+  }
+
+  if (low[node_id] == tin[node_id])
+  {
+    IdList *component = NULL;
+    uint64_t cur_id;
+    do
+    {
+      cur_id = IdList_pop(SCC_stack);
+      on_stack[cur_id] = 0;
+      IdList_append(&component, cur_id);
+    } while (cur_id != node_id);
+
+    if (component && component->next)
+    {
+      while (component)
+      {
+        cur_id = IdList_pop(&component);
+        Node *cur_node = NodeVector_get(g->nodes, cur_id);
+        if (!cur_node->alive)
+          continue;
+        printf("%s ", cur_node->name);
+      }
+      printf("\n");
+    }
+    IdList_destroy(component);
+  }
   return 1;
 }
 
 int Graph_run_Tarjan(Graph *g, const char *node_name)
 {
-  return 0;  
+  uint64_t id;
+  if (!g || !is_valid_node_name(node_name))
+    return 0;
+  if (!ht_get(g->node_names_map, node_name, (int64_t *)&id))
+    return printf("Unknown node %s\n", node_name), 0;
+
+  size_t nodes_count = NodeVector_size(g->nodes);
+
+  int timer = 0;
+  int *tin = calloc(nodes_count, sizeof(int)),
+      *low = calloc(nodes_count, sizeof(int)),
+      *on_stack = calloc(nodes_count, sizeof(int)),
+      *visited = calloc(nodes_count, sizeof(int));
+
+  IdList *SCC_stack = NULL;
+
+  int result = 0;
+  if (tin && low && on_stack && visited)
+    result = Tarjan_dfs(g, id, &timer, tin, low, &SCC_stack, on_stack, visited);
+
+  free(tin);
+  free(low);
+  free(on_stack);
+  free(visited);
+  IdList_destroy(SCC_stack);
+
+  return result;
 }
