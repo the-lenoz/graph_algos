@@ -72,6 +72,43 @@ static int64_t IdList_popitem(IdList **elem)
   return data;
 }
 
+static int enqueue(IdList **queue, int64_t val)
+{
+  if (!queue)
+    return 0;
+  IdList *new_tail = malloc(sizeof(IdList));
+  if (!new_tail)
+    return 0;
+  IdList *next = *queue ? (*queue)->next : new_tail;
+  *new_tail = (IdList){val, next};
+  if (*queue)
+    (*queue)->next = new_tail;
+  *queue = new_tail;
+  return 1;
+}
+
+static int64_t dequeue(IdList **queue)
+{
+  if (!queue || !*queue || !(*queue)->next)
+    return 0;
+
+  int64_t val = (*queue)->next->val;
+  IdList *to_free = (*queue)->next;
+  (*queue)->next = (*queue)->next->next;
+  free(to_free);
+  if (*queue == to_free)
+    *queue = NULL;
+  return val;
+}
+
+static void destroy_queue(IdList **queue)
+{
+  if (!queue)
+    return;
+  while (*queue)
+    dequeue(queue);
+}
+
 static int is_valid_node_name(const char *name)
 {
   if (!name || !isalpha(*name))
@@ -405,7 +442,7 @@ int Graph_run_Dijkstra(Graph *g, const char *node_name)
 
   Heap *pq = Heap_init();
   Heap_add(pq, (HeapItem){0, id});
-  HeapItem item;  
+  HeapItem item;
   while (!Heap_is_empty(pq))
   {
     item = Heap_pop(pq);
@@ -417,18 +454,156 @@ int Graph_run_Dijkstra(Graph *g, const char *node_name)
     for (IdList *edge_l = current_node->exiting_edges; edge_l; edge_l = edge_l->next)
     {
       Edge *edge = EdgeVector_get(g->edges, edge_l->val);
-      if (!edge->alive) continue;
+      if (!edge->alive)
+        continue;
       int distance = item.val + edge->weight;
       if (distance < distances[edge->dst_id])
-	Heap_add(pq, (HeapItem){distances[edge->dst_id] = distance, edge->dst_id});
+        Heap_add(pq, (HeapItem){distances[edge->dst_id] = distance, edge->dst_id});
     }
   }
   for (int i = 0; i < nodes_count; ++i)
   {
     Node *current_node = NodeVector_get(g->nodes, i);
-    if (!current_node->alive || i == id)
+    if (!current_node->alive || i == id || distances[i] == INT_MAX)
       continue;
     printf("%s %d\n", current_node->name, distances[i]);
   }
+  return 1;
+}
+
+static IdList *find_path_BFS(uint64_t src_id, uint64_t dst_id,
+                             size_t nodes_count, int (*graph_matrix)[nodes_count])
+{
+  if (!graph_matrix || !nodes_count || src_id >= nodes_count || dst_id >= nodes_count)
+    return NULL;
+
+  uint64_t *parent = malloc(nodes_count * sizeof(uint64_t));
+  if (!parent)
+    return NULL;
+
+  IdList *queue = NULL;
+  enqueue(&queue, src_id);
+  uint64_t cur_id;
+
+  for (size_t i = 0; i < nodes_count; ++i)
+    parent[i] = UINT64_MAX;
+
+  parent[src_id] = src_id;
+
+  while (queue)
+  {
+    cur_id = dequeue(&queue);
+    if (cur_id == dst_id)
+      break;
+    for (size_t i = 0; i < nodes_count; ++i)
+      if (graph_matrix[cur_id][i] > 0 && parent[i] == UINT64_MAX)
+      {
+        parent[i] = cur_id;
+        enqueue(&queue, i);
+      }
+  }
+  destroy_queue(&queue);
+  if (parent[dst_id] == UINT64_MAX)
+    return free(parent), NULL;
+
+  IdList *result = NULL;
+  cur_id = dst_id;
+  IdList_append(&result, cur_id);
+  do
+  {
+    cur_id = parent[cur_id];
+    IdList_append(&result, cur_id);
+  } while (cur_id != src_id);
+  free(parent);
+  return result;
+}
+
+static int get_max_path_flow(IdList *path, size_t nodes_count, int (*graph_matrix)[nodes_count])
+{
+  if (!path || !graph_matrix || !nodes_count)
+    return 0;
+
+  int flow = INT_MAX;
+  for (IdList *p = path, *prev = NULL; p; prev = p, p = p->next)
+  {
+    if (!prev)
+      continue;
+
+    if (flow > graph_matrix[p->val][prev->val])
+      flow = graph_matrix[p->val][prev->val];
+  }
+  return flow;
+}
+
+static int adjust_graph_matrix_with_flow(IdList *path, int delta,
+                                         size_t nodes_count, int (*graph_matrix)[nodes_count])
+{
+  if (!path || !graph_matrix || !nodes_count || !delta)
+    return 0;
+
+  for (IdList *p = path, *prev = NULL; p; prev = p, p = p->next)
+  {
+    if (!prev)
+      continue;
+    graph_matrix[p->val][prev->val] -= delta;
+    graph_matrix[prev->val][p->val] += delta;
+  }
+  return 1;
+}
+
+int Graph_run_max_flow(Graph *g, const char *src_name, const char *dst_name)
+{
+  if (!g || !is_valid_node_name(src_name) || !is_valid_node_name(dst_name))
+    return 0;
+
+  uint64_t src_id = 0, dst_id = 0;
+  int found = 0b11;
+  if (!ht_get(g->node_names_map, src_name, (int64_t *)&src_id))
+    found &= 0b10;
+
+  if (!ht_get(g->node_names_map, dst_name, (int64_t *)&dst_id))
+    found &= 0b01;
+
+  Node *src_node = NodeVector_get(g->nodes, src_id),
+       *dst_node = NodeVector_get(g->nodes, dst_id);
+
+  if (!src_node || !src_node->alive)
+    found &= 0b10;
+  if (!dst_node || !dst_node->alive)
+    found &= 0b01;
+
+  if (found == 0b00)
+    return printf("Unknown nodes %s %s\n", src_name, dst_name), 0;
+  else if (found < 0b11)
+    return printf("Unknown node %s\n", found == 0b01 ? dst_name : src_name), 0;
+
+  size_t nodes_count = NodeVector_size(g->nodes);
+
+  int (*graph_matrix)[nodes_count] = calloc(nodes_count * nodes_count, sizeof(int));
+
+  for (size_t i = 0; i < EdgeVector_size(g->edges); ++i)
+  {
+    Edge *edge = EdgeVector_get(g->edges, i);
+    if (!edge->alive)
+      continue;
+    graph_matrix[edge->src_id][edge->dst_id] += edge->weight;
+  }
+
+  int flow = 0, delta = 0;
+  while (1)
+  {
+    IdList *path = find_path_BFS(src_id, dst_id, nodes_count, graph_matrix);
+    if (!path)
+      break;
+    delta = get_max_path_flow(path, nodes_count, graph_matrix);
+    flow += delta;
+
+    adjust_graph_matrix_with_flow(path, delta, nodes_count, graph_matrix);
+  }
+
+  free(graph_matrix);
+
+  printf("%d\n", flow);
+  
   return 1;
 }

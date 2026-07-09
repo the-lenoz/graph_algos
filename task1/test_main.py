@@ -116,6 +116,92 @@ class MainIntegrationTest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)
         self.assertEqual(proc.stdout, "B 10\nC 20\nD 30\n")
 
+    def test_remove_edge_then_dijkstra_rpo_and_repeat_remove(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE A",
+                    "NODE B",
+                    "NODE C",
+                    "NODE D",
+                    "EDGE A B 1",
+                    "EDGE B C 2",
+                    "EDGE C D 3",
+                    "DIJKSTRA A",
+                    "RPO_NUMBERING A",
+                    "REMOVE EDGE B C",
+                    "DIJKSTRA A",
+                    "RPO_NUMBERING A",
+                    "REMOVE EDGE B C",
+                    "DIJKSTRA A",
+                    "RPO_NUMBERING A",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(
+            proc.stdout,
+            "".join(
+                [
+                    "B 1\n",
+                    "C 3\n",
+                    "D 6\n",
+                    "A B C D \n",
+                    "B 1\n",
+                    "A B \n",
+                    "B 1\n",
+                    "A B \n",
+                ]
+            ),
+        )
+
+    def test_remove_node_then_dijkstra_rpo_and_repeat_remove(self):
+        proc = self.run_main(
+            "\n".join(
+                [
+                    "NODE A",
+                    "NODE B",
+                    "NODE C",
+                    "NODE D",
+                    "EDGE A B 1",
+                    "EDGE B C 2",
+                    "EDGE C D 3",
+                    "EDGE A D 10",
+                    "DIJKSTRA A",
+                    "RPO_NUMBERING A",
+                    "REMOVE NODE C",
+                    "DIJKSTRA A",
+                    "RPO_NUMBERING A",
+                    "REMOVE NODE C",
+                    "DIJKSTRA A",
+                    "RPO_NUMBERING A",
+                    "",
+                ]
+            )
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(
+            proc.stdout,
+            "".join(
+                [
+                    "B 1\n",
+                    "C 3\n",
+                    "D 6\n",
+                    "A B C D \n",
+                    "B 1\n",
+                    "D 10\n",
+                    "A D B \n",
+                    "Unknown node C\n",
+                    "B 1\n",
+                    "D 10\n",
+                    "A D B \n",
+                ]
+            ),
+        )
+
     def test_main_maxflow_sample(self):
         proc = self.run_main(
             "\n".join(
