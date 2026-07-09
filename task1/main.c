@@ -47,6 +47,7 @@ int exec_instr(Instr instr)
     break;
   case TARJAN:
     DEBUG_LOG("Run Tarjan from '%s'.\n", instr.name_arg_0.value);
+    Graph_run_Tarjan(g, instr.name_arg_0.value);
     break;
   default:
     return 0;

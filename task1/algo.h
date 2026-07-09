@@ -44,9 +44,9 @@ int Graph_add_edge(Graph *g, const char *src_name, const char *dst_name, int wei
 int Graph_remove_edge(Graph *g, const char *src_name, const char *dst_name);
 
 int Graph_run_RPO(Graph *g, const char *start_node_name);
-
 int Graph_run_Dijkstra(Graph *g, const char *node_name);
-
 int Graph_run_max_flow(Graph *g, const char *src_name, const char *dst_name);
+int Graph_run_Tarjan(Graph *g, const char *node_name);
+
 
 #endif // ALGO_H

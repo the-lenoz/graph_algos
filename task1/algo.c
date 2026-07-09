@@ -607,3 +607,8 @@ int Graph_run_max_flow(Graph *g, const char *src_name, const char *dst_name)
   
   return 1;
 }
+
+int Graph_run_Tarjan(Graph *g, const char *node_name)
+{
+  return 0;  
+}
