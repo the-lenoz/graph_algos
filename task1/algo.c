@@ -468,6 +468,8 @@ int Graph_run_Dijkstra(Graph *g, const char *node_name)
       continue;
     printf("%s %d\n", current_node->name, distances[i]);
   }
+  free(distances);
+  Heap_destroy(pq);
   return 1;
 }
 
